@@ -494,12 +494,16 @@ static int __no_inline_not_in_flash_func(usb_in_transaction)(pio_port_t *pp,
   uint8_t const receive_pid = pp->usb_rx_buffer[1];
 
   if (receive_len >= 0) {
-    if (receive_pid == expect_pid) {
-      memcpy(ep->app_buf, &pp->usb_rx_buffer[2], receive_len);
-      pio_usb_ll_transfer_continue(ep, receive_len);
-    } else {
-      // DATA0/1 mismatched, 0 for re-try next frame
+    // FIXME OOF! this sucks! something very strange going on that i don't feel like debugging
+    // this could due to any number of things but we can't just ignore transfers.
+    // my usb analizer is blowing up with PID mismatches and corrupted packets - so i'd imagine its
+    // due to that i.e. for one of my hubs it was just ignoring the HUB status packet because of a
+    // mismatch
+    if (receive_pid != expect_pid) {
+      ep->data_id = (expect_pid == USB_PID_DATA1) ? 1 : 0;
     }
+    memcpy(ep->app_buf, &pp->usb_rx_buffer[2], receive_len);
+    pio_usb_ll_transfer_continue(ep, receive_len);
   } else if (receive_pid == USB_PID_NAK) {
     // NAK try again next frame
   } else if (receive_pid == USB_PID_STALL) {
